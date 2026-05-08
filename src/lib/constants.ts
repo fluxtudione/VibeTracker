@@ -8,9 +8,9 @@ export const APP_NAME = 'VibeTracker';
 
 // Route constants (Expo Router paths)
 export const ROUTES = {
-  // Auth routes
-  LOGIN: '/login',
-  REGISTER: '/register',
+  // Auth routes (using group syntax for Expo Router)
+  LOGIN: '/(auth)/login',
+  REGISTER: '/(auth)/register',
   // Main app tabs
   HOME: '/(tabs)/',
   HABITS_ADD: '/(tabs)/habits/add',
