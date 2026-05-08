@@ -16,6 +16,7 @@ const initialState: HabitsState = {
 // Create context with default values
 export const HabitsContext = createContext<HabitsContextType>({
   ...initialState,
+  setCompletedTodayIds: () => {},
   refetch: async () => {},
 });
 
@@ -37,43 +38,40 @@ function getCompletedTodayIds(habits: HabitWithLogs[]): Set<string> {
 
 // HabitsProvider component
 export function HabitsProvider({ children }: HabitsProviderProps) {
-  const [state, setState] = useState<HabitsState>(initialState);
+  const [habits, setHabits] = useState<HabitWithLogs[]>([]);
+  const [completedTodayIds, setCompletedTodayIds] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const userId = user?.id;
 
   // Fetch habits function
   const fetchHabits = useCallback(async () => {
     if (!userId) {
-      setState((prev) => ({ ...prev, loading: false, habits: [], completedTodayIds: new Set() }));
+      setHabits([]);
+      setCompletedTodayIds(new Set());
+      setLoading(false);
       return;
     }
 
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+    setLoading(true);
+    setError(null);
 
     try {
       const result = await getHabits(userId);
 
       if (result.success && result.data) {
         const completedIds = getCompletedTodayIds(result.data);
-        setState({
-          habits: result.data,
-          completedTodayIds: completedIds,
-          loading: false,
-          error: null,
-        });
+        setHabits(result.data);
+        setCompletedTodayIds(completedIds);
+        setLoading(false);
       } else {
-        setState((prev) => ({
-          ...prev,
-          loading: false,
-          error: result.error || 'Failed to fetch habits',
-        }));
+        setError(result.error || 'Failed to fetch habits');
+        setLoading(false);
       }
     } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: error instanceof Error ? error.message : 'An unexpected error occurred',
-      }));
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+      setLoading(false);
     }
   }, [userId]);
 
@@ -95,8 +93,8 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     channel = subscribeToHabits(userId, (payload) => {
       const { eventType, new: newHabit, old: oldHabit } = payload;
 
-      setState((prev) => {
-        let updatedHabits = [...prev.habits];
+      setHabits((prevHabits) => {
+        let updatedHabits = [...prevHabits];
 
         switch (eventType) {
           case 'INSERT':
@@ -130,11 +128,10 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
             break;
         }
 
-        return {
-          ...prev,
-          habits: updatedHabits,
-          completedTodayIds: getCompletedTodayIds(updatedHabits),
-        };
+        // Update completedTodayIds based on updated habits
+        setCompletedTodayIds(getCompletedTodayIds(updatedHabits));
+
+        return updatedHabits;
       });
     });
 
@@ -148,10 +145,11 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
 
   // Context value
   const value: HabitsContextType = {
-    habits: state.habits,
-    completedTodayIds: state.completedTodayIds,
-    loading: state.loading,
-    error: state.error,
+    habits,
+    completedTodayIds,
+    setCompletedTodayIds,
+    loading,
+    error,
     refetch,
   };
 

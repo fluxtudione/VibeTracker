@@ -12,6 +12,7 @@ export interface HabitsState {
 export interface HabitsContextType {
   habits: HabitWithLogs[];
   completedTodayIds: Set<string>;
+  setCompletedTodayIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;

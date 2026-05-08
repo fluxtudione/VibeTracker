@@ -8,9 +8,10 @@ interface HabitCardProps {
   habit: Habit;
   isCompletedToday: boolean;
   onToggle: () => void;
+  isToggling?: boolean;
 }
 
-const HabitCard: React.FC<HabitCardProps> = ({ habit, isCompletedToday, onToggle }) => {
+const HabitCard: React.FC<HabitCardProps> = ({ habit, isCompletedToday, onToggle, isToggling = false }) => {
   const accentColor = habit.color || '#3B82F6';
 
   return (
@@ -39,8 +40,8 @@ const HabitCard: React.FC<HabitCardProps> = ({ habit, isCompletedToday, onToggle
       <HabitCheckbox
         checked={isCompletedToday}
         onToggle={onToggle}
-        disabled={false}
-        loading={false}
+        disabled={isToggling}
+        loading={isToggling}
       />
     </Card>
   );

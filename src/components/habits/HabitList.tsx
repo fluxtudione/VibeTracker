@@ -1,12 +1,12 @@
 import React from 'react';
 import { FlatList, View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import HabitCard from './HabitCard';
+import { useToggleHabit } from '../../features/habits/hooks/useToggleHabit';
 import type { Habit } from '../../types/habit.types';
 
 interface HabitListProps {
   habits: Habit[];
   completedIds: string[];
-  onToggle: (habitId: string) => void;
   loading?: boolean;
   onAddPress?: () => void;
 }
@@ -45,10 +45,11 @@ const EmptyState = ({ onAddPress }: { onAddPress?: () => void }) => (
 const HabitList: React.FC<HabitListProps> = ({
   habits,
   completedIds,
-  onToggle,
   loading = false,
   onAddPress,
 }) => {
+  const { toggle, isToggling } = useToggleHabit();
+
   if (loading) {
     return (
       <View className="flex-1 px-4 pt-4">
@@ -71,7 +72,8 @@ const HabitList: React.FC<HabitListProps> = ({
         <HabitCard
           habit={item}
           isCompletedToday={completedIds.includes(item.id)}
-          onToggle={() => onToggle(item.id)}
+          onToggle={() => toggle(item.id)}
+          isToggling={isToggling(item.id)}
         />
       )}
       contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16 }}
