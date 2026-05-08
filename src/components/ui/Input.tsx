@@ -12,6 +12,7 @@ interface InputProps {
   keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   editable?: boolean;
+  maxLength?: number;
 }
 
 const Input: React.FC<InputProps> = ({
@@ -25,6 +26,7 @@ const Input: React.FC<InputProps> = ({
   keyboardType = 'default',
   autoCapitalize = 'sentences',
   editable = true,
+  maxLength,
 }) => {
   const hasError = !!error;
 
@@ -41,6 +43,7 @@ const Input: React.FC<InputProps> = ({
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
         editable={editable}
+        maxLength={maxLength}
         className={`border rounded-lg px-4 py-3 text-base text-gray-900 ${
           hasError ? 'border-red-600' : 'border-gray-300'
         } ${!editable ? 'bg-gray-100' : 'bg-white'} ${className}`}
