@@ -53,6 +53,8 @@ export async function getHabits(
         color: item.color,
         frequency: item.frequency,
         is_active: item.is_active,
+        reminder_enabled: item.reminder_enabled,
+        reminder_time: item.reminder_time,
         created_at: item.created_at,
         updated_at: item.updated_at,
       };
@@ -229,7 +231,7 @@ export async function toggleHabitCompletion(
  */
 export async function updateHabit(
   habitId: string,
-  updates: Partial<Pick<NewHabit, 'name' | 'description' | 'icon' | 'color' | 'frequency'>>
+  updates: Partial<Pick<NewHabit, 'name' | 'description' | 'icon' | 'color' | 'frequency' | 'reminder_enabled' | 'reminder_time'>>
 ): Promise<ServiceResult<Habit>> {
   try {
     const { data, error } = await supabase

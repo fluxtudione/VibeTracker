@@ -9,6 +9,7 @@ import {
   ScrollView,
   Alert,
   Pressable,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import SafeAreaWrapper from '../../src/components/layout/SafeAreaWrapper';
@@ -18,6 +19,7 @@ import { useAuth } from '../../src/features/auth';
 import { useAddHabit } from '../../src/features/habits/hooks/useAddHabit';
 import { useUpdateHabit } from '../../src/features/habits/hooks/useUpdateHabit';
 import { useDeleteHabit } from '../../src/features/habits/hooks/useDeleteHabit';
+import { scheduleHabitReminder, cancelHabitReminder } from '../../src/services/notification';
 import type { HabitWithLogs } from '../../src/types/habit.types';
 
 // Emoji options for habit icon
@@ -34,6 +36,25 @@ const COLOR_OPTIONS = [
 
 type Frequency = 'daily' | 'weekly';
 
+// Hour and minute options for custom TimePicker
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => i);
+const MINUTE_OPTIONS = [0, 15, 30, 45];
+
+/** Format hour & minute to "HH:MM:SS" string for storage */
+function formatReminderTime(hour: number, minute: number): string {
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`;
+}
+
+/** Parse "HH:MM:SS" or "HH:MM" into { hour, minute } */
+function parseReminderTime(timeStr: string | null | undefined): { hour: number; minute: number } {
+  if (!timeStr) return { hour: 8, minute: 0 };
+  const [h, m] = timeStr.split(':');
+  return {
+    hour: Math.max(0, Math.min(23, parseInt(h, 10) || 8)),
+    minute: Math.max(0, Math.min(59, parseInt(m, 10) || 0)),
+  };
+}
+
 export default function HomeScreen() {
   const { habits, completedTodayIds, loading, error, refetch } = useHabits();
   const { user, signOut } = useAuth();
@@ -49,6 +70,9 @@ export default function HomeScreen() {
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
   const [frequency, setFrequency] = useState<Frequency>('daily');
   const [nameError, setNameError] = useState('');
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderHour, setReminderHour] = useState(8);
+  const [reminderMinute, setReminderMinute] = useState(0);
 
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -59,6 +83,9 @@ export default function HomeScreen() {
   const [editColor, setEditColor] = useState(COLOR_OPTIONS[0]);
   const [editFrequency, setEditFrequency] = useState<Frequency>('daily');
   const [editNameError, setEditNameError] = useState('');
+  const [editReminderEnabled, setEditReminderEnabled] = useState(false);
+  const [editReminderHour, setEditReminderHour] = useState(8);
+  const [editReminderMinute, setEditReminderMinute] = useState(0);
 
   // Context menu (action sheet) state
   const [contextMenuVisible, setContextMenuVisible] = useState(false);
@@ -91,6 +118,9 @@ export default function HomeScreen() {
     setSelectedColor(COLOR_OPTIONS[0]);
     setFrequency('daily');
     setNameError('');
+    setReminderEnabled(false);
+    setReminderHour(8);
+    setReminderMinute(0);
   };
 
   const openEditModal = useCallback((habit: HabitWithLogs) => {
@@ -101,6 +131,10 @@ export default function HomeScreen() {
     setEditColor(habit.color || COLOR_OPTIONS[0]);
     setEditFrequency((habit.frequency as Frequency) || 'daily');
     setEditNameError('');
+    setEditReminderEnabled(habit.reminder_enabled ?? false);
+    const { hour, minute } = parseReminderTime(habit.reminder_time);
+    setEditReminderHour(hour);
+    setEditReminderMinute(minute);
     setShowEditModal(true);
   }, []);
 
@@ -112,6 +146,9 @@ export default function HomeScreen() {
     setEditColor(COLOR_OPTIONS[0]);
     setEditFrequency('daily');
     setEditNameError('');
+    setEditReminderEnabled(false);
+    setEditReminderHour(8);
+    setEditReminderMinute(0);
   };
 
   // --------------- Handlers ---------------
@@ -180,7 +217,9 @@ export default function HomeScreen() {
       return;
     }
 
-    const habitData = {
+    const reminderTime = reminderEnabled ? formatReminderTime(reminderHour, reminderMinute) : null;
+
+    const habitData: any = {
       user_id: user.id,
       name: name.trim(),
       description: description.trim() || null,
@@ -188,6 +227,8 @@ export default function HomeScreen() {
       color: selectedColor,
       frequency,
       is_active: true,
+      reminder_enabled: reminderEnabled,
+      reminder_time: reminderTime,
     };
 
     const success = await addHabit(habitData);
@@ -213,15 +254,27 @@ export default function HomeScreen() {
 
     if (!isValid || !editingHabit) return;
 
-    const success = await updateHabitById(editingHabit.id, {
+    const editReminderTime = editReminderEnabled
+      ? formatReminderTime(editReminderHour, editReminderMinute)
+      : null;
+
+    const updates: any = {
       name: editName.trim(),
       description: editDescription.trim() || null,
       icon: editIcon,
       color: editColor,
       frequency: editFrequency,
-    });
+      reminder_enabled: editReminderEnabled,
+      reminder_time: editReminderTime,
+    };
+
+    const success = await updateHabitById(editingHabit.id, updates);
 
     if (success) {
+      // Re-schedule or cancel notification for this habit
+      const updatedHabit = { ...editingHabit, ...updates };
+      await scheduleHabitReminder(updatedHabit);
+
       setShowEditModal(false);
       resetEditForm();
       refetch();
@@ -544,6 +597,114 @@ export default function HomeScreen() {
                   </Pressable>
                 </View>
               </View>
+
+              {/* Reminder Section */}
+              <View style={{ marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <Text style={{ color: '#374151', fontSize: 14, fontWeight: '500' }}>
+                    Daily Reminder
+                  </Text>
+                  <Switch
+                    value={reminderEnabled}
+                    onValueChange={setReminderEnabled}
+                    trackColor={{ false: '#D1D5DB', true: '#93C5FD' }}
+                    thumbColor={reminderEnabled ? '#2563EB' : '#9CA3AF'}
+                  />
+                </View>
+
+                {reminderEnabled ? (
+                  <View style={{ backgroundColor: '#F9FAFB', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', padding: 16 }}>
+                    {/* Time preview */}
+                    <Text style={{
+                      textAlign: 'center',
+                      fontSize: 32,
+                      fontWeight: '700',
+                      color: '#111827',
+                      letterSpacing: 2,
+                      marginBottom: 16,
+                    }}>
+                      {formatReminderTime(reminderHour, reminderMinute).substring(0, 5)}
+                    </Text>
+
+                    {/* Hour horizontal scroll */}
+                    <Text style={{ color: '#9CA3AF', fontSize: 11, fontWeight: '500', marginBottom: 6, textAlign: 'center' }}>
+                      HOUR
+                    </Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ paddingHorizontal: '35%' as any }}
+                      style={{ marginBottom: 12 }}
+                      snapToInterval={44}
+                      decelerationRate="fast"
+                    >
+                      {HOUR_OPTIONS.map((h) => (
+                        <Pressable
+                          key={`h-${h}`}
+                          onPress={() => setReminderHour(h)}
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 22,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginHorizontal: 4,
+                            backgroundColor: reminderHour === h ? '#EEF2FF' : 'transparent',
+                            borderWidth: reminderHour === h ? 2 : 0,
+                            borderColor: '#2563EB',
+                          }}
+                        >
+                          <Text style={{
+                            fontSize: reminderHour === h ? 20 : 16,
+                            fontWeight: reminderHour === h ? '700' : '500',
+                            color: reminderHour === h ? '#2563EB' : '#9CA3AF',
+                          }}>
+                            {String(h).padStart(2, '0')}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+
+                    {/* Minute horizontal scroll */}
+                    <Text style={{ color: '#9CA3AF', fontSize: 11, fontWeight: '500', marginBottom: 6, textAlign: 'center' }}>
+                      MINUTE
+                    </Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ paddingHorizontal: '35%' as any }}
+                      snapToInterval={44}
+                      decelerationRate="fast"
+                    >
+                      {MINUTE_OPTIONS.map((m) => (
+                        <Pressable
+                          key={`m-${m}`}
+                          onPress={() => setReminderMinute(m)}
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 22,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginHorizontal: 4,
+                            backgroundColor: reminderMinute === m ? '#EEF2FF' : 'transparent',
+                            borderWidth: reminderMinute === m ? 2 : 0,
+                            borderColor: '#2563EB',
+                          }}
+                        >
+                          <Text style={{
+                            fontSize: reminderMinute === m ? 20 : 16,
+                            fontWeight: reminderMinute === m ? '700' : '500',
+                            color: reminderMinute === m ? '#2563EB' : '#9CA3AF',
+                          }}>
+                            {String(m).padStart(2, '0')}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
+                ) : null}
+              </View>
             </View>
 
             {/* Error Message */}
@@ -785,6 +946,114 @@ export default function HomeScreen() {
                     </Text>
                   </Pressable>
                 </View>
+              </View>
+
+              {/* Reminder Section */}
+              <View style={{ marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <Text style={{ color: '#374151', fontSize: 14, fontWeight: '500' }}>
+                    Daily Reminder
+                  </Text>
+                  <Switch
+                    value={editReminderEnabled}
+                    onValueChange={setEditReminderEnabled}
+                    trackColor={{ false: '#D1D5DB', true: '#93C5FD' }}
+                    thumbColor={editReminderEnabled ? '#2563EB' : '#9CA3AF'}
+                  />
+                </View>
+
+                {editReminderEnabled ? (
+                  <View style={{ backgroundColor: '#F9FAFB', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', padding: 16 }}>
+                    {/* Time preview */}
+                    <Text style={{
+                      textAlign: 'center',
+                      fontSize: 32,
+                      fontWeight: '700',
+                      color: '#111827',
+                      letterSpacing: 2,
+                      marginBottom: 16,
+                    }}>
+                      {formatReminderTime(editReminderHour, editReminderMinute).substring(0, 5)}
+                    </Text>
+
+                    {/* Hour horizontal scroll */}
+                    <Text style={{ color: '#9CA3AF', fontSize: 11, fontWeight: '500', marginBottom: 6, textAlign: 'center' }}>
+                      HOUR
+                    </Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ paddingHorizontal: '35%' as any }}
+                      style={{ marginBottom: 12 }}
+                      snapToInterval={44}
+                      decelerationRate="fast"
+                    >
+                      {HOUR_OPTIONS.map((h) => (
+                        <Pressable
+                          key={`eh-${h}`}
+                          onPress={() => setEditReminderHour(h)}
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 22,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginHorizontal: 4,
+                            backgroundColor: editReminderHour === h ? '#EEF2FF' : 'transparent',
+                            borderWidth: editReminderHour === h ? 2 : 0,
+                            borderColor: '#2563EB',
+                          }}
+                        >
+                          <Text style={{
+                            fontSize: editReminderHour === h ? 20 : 16,
+                            fontWeight: editReminderHour === h ? '700' : '500',
+                            color: editReminderHour === h ? '#2563EB' : '#9CA3AF',
+                          }}>
+                            {String(h).padStart(2, '0')}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+
+                    {/* Minute horizontal scroll */}
+                    <Text style={{ color: '#9CA3AF', fontSize: 11, fontWeight: '500', marginBottom: 6, textAlign: 'center' }}>
+                      MINUTE
+                    </Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ paddingHorizontal: '35%' as any }}
+                      snapToInterval={44}
+                      decelerationRate="fast"
+                    >
+                      {MINUTE_OPTIONS.map((m) => (
+                        <Pressable
+                          key={`em-${m}`}
+                          onPress={() => setEditReminderMinute(m)}
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 22,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginHorizontal: 4,
+                            backgroundColor: editReminderMinute === m ? '#EEF2FF' : 'transparent',
+                            borderWidth: editReminderMinute === m ? 2 : 0,
+                            borderColor: '#2563EB',
+                          }}
+                        >
+                          <Text style={{
+                            fontSize: editReminderMinute === m ? 20 : 16,
+                            fontWeight: editReminderMinute === m ? '700' : '500',
+                            color: editReminderMinute === m ? '#2563EB' : '#9CA3AF',
+                          }}>
+                            {String(m).padStart(2, '0')}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
+                ) : null}
               </View>
             </View>
 

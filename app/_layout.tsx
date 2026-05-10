@@ -3,6 +3,10 @@ import { Stack, useSegments, useRouter } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../src/features/auth';
 import { ROUTES } from '../src/lib/constants';
+import {
+  configureNotificationHandler,
+  requestNotificationPermissions,
+} from '../src/services/notification';
 
 // Import CSS for NativeWind v4
 import '../global.css';
@@ -12,6 +16,12 @@ function RootLayoutNav() {
   const { session, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // Setup notification handler & request permissions once on mount
+  useEffect(() => {
+    configureNotificationHandler();
+    requestNotificationPermissions();
+  }, []);
 
   useEffect(() => {
     if (loading) return;

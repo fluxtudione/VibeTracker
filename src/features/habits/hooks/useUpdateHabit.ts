@@ -5,7 +5,7 @@ import type { Habit } from '../../../types/habit.types';
 interface UseUpdateHabitReturn {
   updateHabitById: (
     habitId: string,
-    updates: Partial<Pick<Habit, 'name' | 'description' | 'icon' | 'color' | 'frequency'>>,
+    updates: Partial<Pick<Habit, 'name' | 'description' | 'icon' | 'color' | 'frequency' | 'reminder_enabled' | 'reminder_time'>>,
   ) => Promise<boolean>;
   isUpdating: (habitId: string) => boolean;
   error: string | null;
@@ -21,7 +21,7 @@ export function useUpdateHabit(): UseUpdateHabitReturn {
   );
 
   const updateHabitById = useCallback(
-    async (habitId: string, updates: Partial<Pick<Habit, 'name' | 'description' | 'icon' | 'color' | 'frequency'>>): Promise<boolean> => {
+    async (habitId: string, updates: Partial<Pick<Habit, 'name' | 'description' | 'icon' | 'color' | 'frequency' | 'reminder_enabled' | 'reminder_time'>>): Promise<boolean> => {
       if (updatingIds.has(habitId)) return false;
 
       setUpdatingIds((prev) => {

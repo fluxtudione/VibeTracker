@@ -59,6 +59,8 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          reminder_enabled: boolean | null
+          reminder_time: string | null
           updated_at: string | null
           user_id: string
         }
@@ -71,6 +73,8 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
+          reminder_enabled?: boolean | null
+          reminder_time?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -83,6 +87,8 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          reminder_enabled?: boolean | null
+          reminder_time?: string | null
           updated_at?: string | null
           user_id?: string
         }
