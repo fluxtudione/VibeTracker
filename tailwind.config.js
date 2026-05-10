@@ -4,6 +4,7 @@ module.exports = {
     "./app/**/*.{tsx,ts}",
     "./src/**/*.{tsx,ts}",
   ],
+  presets: [require("nativewind/preset")],
   theme: {
     extend: {},
   },

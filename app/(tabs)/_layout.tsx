@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { HabitsProvider } from '../../src/features/habits';
-import { Ionicons } from 'expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TabsLayout() {
   return (

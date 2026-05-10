@@ -1,23 +1,33 @@
 import { createClient } from '@supabase/supabase-js';
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../../config/env';
 
-// Custom storage adapter for Supabase using Expo SecureStore
-const ExpoSecureStoreAdapter = {
-  getItem: (key: string): Promise<string | null> => {
-    return SecureStore.getItemAsync(key);
+// Supabase auth session tokens (JWTs + user metadata) routinely exceed
+// Expo SecureStore's 2048-byte per-key limit. AsyncStorage is the
+// recommended storage backend per the Supabase Expo / React Native docs:
+//   https://supabase.com/docs/reference/javascript/initializing#react-native-options
+//
+// For non-auth sensitive values you may prefer SecureStore; the Supabase
+// client only interacts with the `storage` adapter for its own auth keys.
+const SupabaseStorageAdapter = {
+  getItem: async (key: string): Promise<string | null> => {
+    try {
+      return await AsyncStorage.getItem(key);
+    } catch {
+      return null;
+    }
   },
-  setItem: (key: string, value: string): Promise<void> => {
-    return SecureStore.setItemAsync(key, value);
+  setItem: async (key: string, value: string): Promise<void> => {
+    await AsyncStorage.setItem(key, value);
   },
-  removeItem: (key: string): Promise<void> => {
-    return SecureStore.deleteItemAsync(key);
+  removeItem: async (key: string): Promise<void> => {
+    await AsyncStorage.removeItem(key);
   },
 };
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    storage: ExpoSecureStoreAdapter as any,
+    storage: SupabaseStorageAdapter as any,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

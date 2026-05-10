@@ -18,6 +18,7 @@ const Button: React.FC<ButtonProps> = ({
   disabled = false,
   className = '',
 }) => {
+  console.log('Button props', { disabled, loading, variant, className });
   const getVariantClasses = () => {
     switch (variant) {
       case 'primary':

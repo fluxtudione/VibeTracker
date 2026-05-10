@@ -3,6 +3,8 @@ import { Stack, useSegments, useRouter } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../src/features/auth';
 import { ROUTES } from '../src/lib/constants';
+
+// Import CSS for NativeWind v4
 import '../global.css';
 
 // Root layout with auth protection
@@ -34,7 +36,6 @@ function RootLayoutNav() {
     <Stack>
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="habits" options={{ headerShown: false }} />
     </Stack>
   );
 }

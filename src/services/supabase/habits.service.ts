@@ -222,8 +222,47 @@ export async function toggleHabitCompletion(
 }
 
 /**
- * Delete a habit (soft delete by setting is_active to false or hard delete)
- * This implementation uses hard delete which will cascade delete habit_logs
+ * Update an existing habit's details (name, description, icon, color, frequency)
+ * @param habitId - The habit UUID to update
+ * @param updates - Partial habit data to apply
+ * @returns Promise with the updated habit
+ */
+export async function updateHabit(
+  habitId: string,
+  updates: Partial<Pick<NewHabit, 'name' | 'description' | 'icon' | 'color' | 'frequency'>>
+): Promise<ServiceResult<Habit>> {
+  try {
+    const { data, error } = await supabase
+      .from('habits')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', habitId)
+      .select()
+      .single();
+
+    if (error) {
+      return {
+        data: null,
+        error: handleSupabaseError(error),
+        success: false,
+      };
+    }
+
+    return {
+      data: data as Habit,
+      error: null,
+      success: true,
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: handleSupabaseError(error),
+      success: false,
+    };
+  }
+}
+
+/**
+ * Delete a habit (hard delete which cascade-deletes habit_logs)
  * @param habitId - The habit UUID to delete
  * @returns Promise with success status
  */
@@ -257,6 +296,52 @@ export async function deleteHabit(
     };
   }
 }
+/**
+ * Fetch habit logs for a user within a date range.
+ * Returns logs grouped by date, useful for weekly/monthly stats.
+ * @param userId - The user's UUID
+ * @param startDate - Start date in YYYY-MM-DD format (inclusive)
+ * @param endDate - End date in YYYY-MM-DD format (inclusive)
+ * @returns Promise with habit logs array
+ */
+export async function getHabitLogsByDateRange(
+  userId: string,
+  startDate: string,
+  endDate: string,
+): Promise<ServiceResult<HabitLog[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('habit_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: true });
+
+    if (error) {
+      return {
+        data: null,
+        error: handleSupabaseError(error),
+        success: false,
+      };
+    }
+
+    return {
+      data: (data || []) as HabitLog[],
+      error: null,
+      success: true,
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: handleSupabaseError(error),
+      success: false,
+    };
+  }
+}
+
+// Counter to generate unique channel names and avoid collision errors
+let channelCounter = 0;
 
 /**
  * Subscribe to real-time changes on habits table for a specific user
@@ -272,8 +357,13 @@ export function subscribeToHabits(
     old: Habit;
   }) => void
 ): RealtimeChannel {
+  channelCounter += 1;
+  // Use a unique channel name to avoid "cannot add callbacks after subscribe" errors
+  // when the component unmounts and remounts (e.g., navigating to add habit and back)
+  const channelName = `habits:${userId}:${channelCounter}`;
+
   const channel = supabase
-    .channel(`habits:${userId}`)
+    .channel(channelName)
     .on(
       'postgres_changes',
       {
@@ -293,6 +383,7 @@ export function subscribeToHabits(
     )
     .subscribe();
 
+  console.log(`[Realtime] Subscribed to channel: ${channelName}`);
   return channel;
 }
 

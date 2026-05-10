@@ -15,6 +15,7 @@ const HabitCheckbox: React.FC<HabitCheckboxProps> = ({
   disabled = false,
   loading = false,
 }) => {
+  console.log('HabitCheckbox props', { checked, disabled, loading });
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {

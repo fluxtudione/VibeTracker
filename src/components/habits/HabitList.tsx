@@ -9,6 +9,7 @@ interface HabitListProps {
   completedIds: string[];
   loading?: boolean;
   onAddPress?: () => void;
+  onLongPressHabit?: (habit: Habit) => void;
 }
 
 const SkeletonCard = () => (
@@ -47,6 +48,7 @@ const HabitList: React.FC<HabitListProps> = ({
   completedIds,
   loading = false,
   onAddPress,
+  onLongPressHabit,
 }) => {
   const { toggle, isToggling } = useToggleHabit();
 
@@ -74,6 +76,7 @@ const HabitList: React.FC<HabitListProps> = ({
           isCompletedToday={completedIds.includes(item.id)}
           onToggle={() => toggle(item.id)}
           isToggling={isToggling(item.id)}
+          onLongPress={onLongPressHabit ? () => onLongPressHabit(item) : undefined}
         />
       )}
       contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16 }}

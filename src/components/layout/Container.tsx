@@ -7,9 +7,10 @@ interface ContainerProps extends ScrollViewProps {
 }
 
 const Container: React.FC<ContainerProps> = ({ children, className = '', ...props }) => {
+  console.log('Container props', { className, ...props });
   return (
     <ScrollView
-      className={`px-4 ${className}`}
+      className="px-4"
       contentContainerStyle={{ paddingVertical: 16 }}
       showsVerticalScrollIndicator={false}
       {...props}
